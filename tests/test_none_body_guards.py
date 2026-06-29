@@ -441,8 +441,14 @@ class TestApplicationsNoneBodyGuards:
     async def test_get_application_none_body_returns_error_dict(
         self, mock_get_client, ctx_no_elicitation
     ):
-        client = AsyncMock()
-        client.get_application.return_value = (None, MagicMock(), None)
+        # get_application fetches the raw record through the request executor
+        # rather than the typed client (see #48), so the none-body case is an
+        # empty response body rather than a None first element.
+        executor = MagicMock()
+        executor.create_request = AsyncMock(return_value=({"method": "GET"}, None))
+        executor.execute = AsyncMock(return_value=(MagicMock(), None, None))
+        client = MagicMock()
+        client.get_request_executor = MagicMock(return_value=executor)
         mock_get_client.return_value = client
 
         result = await get_application(ctx=ctx_no_elicitation, app_id=APP_ID)
