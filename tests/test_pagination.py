@@ -20,11 +20,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from okta_mcp_server.utils.pagination import (
+    create_paginated_response,
     extract_after_cursor,
     paginate_all_results,
-    create_paginated_response,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -855,27 +854,61 @@ class TestListBrandsFetchAll:
         assert result["has_more"] is False
 
 
+def _policy_executor_client(pages=None, execute_error=None):
+    """Build a client whose raw request executor yields JSON policy pages."""
+    executor = MagicMock()
+    executor.create_request = AsyncMock(return_value=({"method": "GET"}, None))
+    if execute_error is not None:
+        executor.execute = AsyncMock(return_value=(None, None, execute_error))
+    else:
+        executor.execute = AsyncMock(
+            side_effect=[(resp, json.dumps(items), None) for items, resp in (pages or [])]
+        )
+    client = MagicMock()
+    client.get_request_executor = MagicMock(return_value=executor)
+    return client
+
+
+def _policy_dicts(n: int, prefix: str = "pol") -> list:
+    return [
+        {
+            "id": f"{prefix}{i}",
+            "name": f"Policy {i}",
+            "type": "ACCESS_POLICY",
+            "status": "ACTIVE",
+            "system": False,
+        }
+        for i in range(n)
+    ]
+
+
+def _policy_rule_dicts(n: int, prefix: str = "rule") -> list:
+    return [
+        {
+            "id": f"{prefix}{i}",
+            "name": f"Rule {i}",
+            "type": "ACCESS_POLICY",
+            "status": "ACTIVE",
+            "priority": i + 1,
+            "conditions": {},
+            "actions": {},
+        }
+        for i in range(n)
+    ]
+
+
 class TestListPoliciesFetchAll:
     @pytest.mark.asyncio
     async def test_fetch_all_true_paginates_all_pages(self):
         """list_policies with fetch_all=True stitches multiple pages together."""
         from okta_mcp_server.tools.policies.policies import list_policies
 
-        page1 = _make_items(2, "pol")
-        for p in page1:
-            p.to_dict = lambda: {"id": "pol1"}
-        page2 = _make_items(2, "pol")
-        for p in page2:
-            p.to_dict = lambda: {"id": "pol2"}
-
         resp1 = _make_v3_response(after_cursor="p2")
         resp2 = _make_v3_response(after_cursor=None)
-
-        client = AsyncMock()
-        client.list_policies.side_effect = [
-            (page1, resp1, None),
-            (page2, resp2, None),
-        ]
+        client = _policy_executor_client([
+            (_policy_dicts(2, "p1"), resp1),
+            (_policy_dicts(2, "p2"), resp2),
+        ])
 
         ctx, _ = _make_ctx_with_client(client)
 
@@ -892,13 +925,8 @@ class TestListPoliciesFetchAll:
         """list_policies with fetch_all=False returns one page and exposes cursor."""
         from okta_mcp_server.tools.policies.policies import list_policies
 
-        policies = _make_items(3, "pol")
-        for p in policies:
-            p.to_dict = lambda: {"id": "pol"}
         resp = _make_v3_response(after_cursor="pc")
-
-        client = AsyncMock()
-        client.list_policies.return_value = (policies, resp, None)
+        client = _policy_executor_client([(_policy_dicts(3), resp)])
 
         ctx, _ = _make_ctx_with_client(client)
 
@@ -909,27 +937,22 @@ class TestListPoliciesFetchAll:
         assert result["total_fetched"] == 3
         assert result["has_more"] is True
         assert result["next_cursor"] == "pc"
-        assert client.list_policies.call_count == 1
+        assert client.get_request_executor.return_value.execute.call_count == 1
 
     @pytest.mark.asyncio
     async def test_fetch_all_true_single_page_no_cursor(self):
         """fetch_all=True on a single-page result: no extra requests made."""
         from okta_mcp_server.tools.policies.policies import list_policies
 
-        policies = _make_items(2, "pol")
-        for p in policies:
-            p.to_dict = lambda: {"id": "pol"}
         resp = _make_v3_response(after_cursor=None)
-
-        client = AsyncMock()
-        client.list_policies.return_value = (policies, resp, None)
+        client = _policy_executor_client([(_policy_dicts(2), resp)])
 
         ctx, _ = _make_ctx_with_client(client)
 
         with patch("okta_mcp_server.tools.policies.policies.get_okta_client", return_value=client):
             result = await list_policies(ctx, type="MFA_ENROLL", fetch_all=True)
 
-        assert client.list_policies.call_count == 1
+        assert client.get_request_executor.return_value.execute.call_count == 1
         assert result["total_fetched"] == 2
 
     @pytest.mark.asyncio
@@ -938,8 +961,7 @@ class TestListPoliciesFetchAll:
         from okta_mcp_server.tools.policies.policies import list_policies
 
         resp = _make_v3_response(after_cursor=None)
-        client = AsyncMock()
-        client.list_policies.return_value = ([], resp, None)
+        client = _policy_executor_client([([], resp)])
 
         ctx, _ = _make_ctx_with_client(client)
 
@@ -954,8 +976,7 @@ class TestListPoliciesFetchAll:
         """An Okta API error is surfaced as an error key."""
         from okta_mcp_server.tools.policies.policies import list_policies
 
-        client = AsyncMock()
-        client.list_policies.return_value = (None, None, "some API error")
+        client = _policy_executor_client(execute_error="some API error")
 
         ctx, _ = _make_ctx_with_client(client)
 
@@ -971,21 +992,12 @@ class TestListPolicyRulesFetchAll:
         """list_policy_rules with fetch_all=True stitches multiple pages together."""
         from okta_mcp_server.tools.policies.policies import list_policy_rules
 
-        page1 = _make_items(2, "rule")
-        for r in page1:
-            r.to_dict = lambda: {"id": "rule1"}
-        page2 = _make_items(1, "rule")
-        for r in page2:
-            r.to_dict = lambda: {"id": "rule2"}
-
         resp1 = _make_v3_response(after_cursor="r2")
         resp2 = _make_v3_response(after_cursor=None)
-
-        client = AsyncMock()
-        client.list_policy_rules.side_effect = [
-            (page1, resp1, None),
-            (page2, resp2, None),
-        ]
+        client = _policy_executor_client([
+            (_policy_rule_dicts(2, "r1"), resp1),
+            (_policy_rule_dicts(1, "r2"), resp2),
+        ])
 
         ctx, _ = _make_ctx_with_client(client)
 
@@ -1001,13 +1013,8 @@ class TestListPolicyRulesFetchAll:
         """list_policy_rules with fetch_all=False returns cursor for next page."""
         from okta_mcp_server.tools.policies.policies import list_policy_rules
 
-        rules = _make_items(3, "rule")
-        for r in rules:
-            r.to_dict = lambda: {"id": "rule"}
         resp = _make_v3_response(after_cursor="rc")
-
-        client = AsyncMock()
-        client.list_policy_rules.return_value = (rules, resp, None)
+        client = _policy_executor_client([(_policy_rule_dicts(3), resp)])
 
         ctx, _ = _make_ctx_with_client(client)
 
@@ -1018,28 +1025,23 @@ class TestListPolicyRulesFetchAll:
         assert result["total_fetched"] == 3
         assert result["has_more"] is True
         assert result["next_cursor"] == "rc"
-        assert client.list_policy_rules.call_count == 1
+        assert client.get_request_executor.return_value.execute.call_count == 1
 
     @pytest.mark.asyncio
     async def test_after_cursor_is_forwarded(self):
         """The after cursor is forwarded to the API call."""
         from okta_mcp_server.tools.policies.policies import list_policy_rules
 
-        rules = _make_items(2, "rule")
-        for r in rules:
-            r.to_dict = lambda: {"id": "rule"}
         resp = _make_v3_response(after_cursor=None)
-
-        client = AsyncMock()
-        client.list_policy_rules.return_value = (rules, resp, None)
+        client = _policy_executor_client([(_policy_rule_dicts(2), resp)])
 
         ctx, _ = _make_ctx_with_client(client)
 
         with patch("okta_mcp_server.tools.policies.policies.get_okta_client", return_value=client):
             result = await list_policy_rules(ctx, policy_id="pol1", after="some_cursor")
 
-        call_kwargs = client.list_policy_rules.call_args
-        assert call_kwargs[1].get("after") == "some_cursor" or "some_cursor" in str(call_kwargs)
+        url = client.get_request_executor.return_value.create_request.call_args.kwargs["url"]
+        assert "after=some_cursor" in url
         assert result["total_fetched"] == 2
 
     @pytest.mark.asyncio
@@ -1048,8 +1050,7 @@ class TestListPolicyRulesFetchAll:
         from okta_mcp_server.tools.policies.policies import list_policy_rules
 
         resp = _make_v3_response(after_cursor=None)
-        client = AsyncMock()
-        client.list_policy_rules.return_value = ([], resp, None)
+        client = _policy_executor_client([([], resp)])
 
         ctx, _ = _make_ctx_with_client(client)
 
