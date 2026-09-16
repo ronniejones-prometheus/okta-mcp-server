@@ -144,14 +144,22 @@ class TestCreateGroupPushMapping:
         mock_get_client.return_value = client
 
         result = await create_group_push_mapping(
-            ctx=_make_ctx(), app_id=APP_ID, source_group_id=SOURCE_GROUP_ID, target_group_name="Engineering", status="inactive"
+            ctx=_make_ctx(),
+            app_id=APP_ID,
+            source_group_id=SOURCE_GROUP_ID,
+            target_group_name="Engineering",
+            status="inactive",
         )
 
         args, _ = client.create_group_push_mapping.call_args
         assert args[0] == APP_ID
         body = args[1]
         assert isinstance(body, okta_models.CreateGroupPushMappingRequest)
-        assert body.to_dict() == {"sourceGroupId": SOURCE_GROUP_ID, "targetGroupName": "Engineering", "status": "INACTIVE"}
+        assert body.to_dict() == {
+            "sourceGroupId": SOURCE_GROUP_ID,
+            "targetGroupName": "Engineering",
+            "status": "INACTIVE",
+        }
         assert result["id"] == MAPPING_ID
 
     @pytest.mark.asyncio
@@ -166,7 +174,11 @@ class TestCreateGroupPushMapping:
         )
 
         body = client.create_group_push_mapping.call_args[0][1]
-        assert body.to_dict() == {"sourceGroupId": SOURCE_GROUP_ID, "targetGroupId": TARGET_GROUP_ID, "status": "ACTIVE"}
+        assert body.to_dict() == {
+            "sourceGroupId": SOURCE_GROUP_ID,
+            "targetGroupId": TARGET_GROUP_ID,
+            "status": "ACTIVE",
+        }
 
     @pytest.mark.asyncio
     @patch(f"{MODULE}.get_okta_client")
@@ -183,7 +195,11 @@ class TestCreateGroupPushMapping:
             "samAccountName": "test",
         }
         await create_group_push_mapping(
-            ctx=_make_ctx(), app_id=APP_ID, source_group_id=SOURCE_GROUP_ID, target_group_name="Test", app_config=ad_config
+            ctx=_make_ctx(),
+            app_id=APP_ID,
+            source_group_id=SOURCE_GROUP_ID,
+            target_group_name="Test",
+            app_config=ad_config,
         )
 
         body = client.create_group_push_mapping.call_args[0][1]
@@ -244,7 +260,9 @@ class TestUpdateGroupPushMapping:
         client.update_group_push_mapping.return_value = (_make_mapping_mock(status="INACTIVE"), MagicMock(), None)
         mock_get_client.return_value = client
 
-        result = await update_group_push_mapping(ctx=_make_ctx(), app_id=APP_ID, mapping_id=MAPPING_ID, status="inactive")
+        result = await update_group_push_mapping(
+            ctx=_make_ctx(), app_id=APP_ID, mapping_id=MAPPING_ID, status="inactive"
+        )
 
         args, _ = client.update_group_push_mapping.call_args
         assert args[:2] == (APP_ID, MAPPING_ID)
@@ -257,7 +275,9 @@ class TestUpdateGroupPushMapping:
         client = AsyncMock()
         mock_get_client.return_value = client
 
-        result = await update_group_push_mapping(ctx=_make_ctx(), app_id=APP_ID, mapping_id=MAPPING_ID, status="PAUSED")
+        result = await update_group_push_mapping(
+            ctx=_make_ctx(), app_id=APP_ID, mapping_id=MAPPING_ID, status="PAUSED"
+        )
 
         client.update_group_push_mapping.assert_not_called()
         assert "Invalid status" in result["error"]
