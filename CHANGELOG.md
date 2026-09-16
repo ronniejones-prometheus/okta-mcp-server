@@ -1,6 +1,14 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## v1.1.6-prometheus.1 (fork)
+
+### Features
+- Added application group assignment tools — `list_application_group_assignments`, `get_application_group_assignment` (`okta.apps.read`), `assign_group_to_application` and `unassign_group_from_application` (`okta.apps.manage`) — wrapping `/api/v1/apps/{appId}/groups[/{groupId}]`. Addresses upstream [#116](https://github.com/okta/okta-mcp-server/issues/116) and the group half of [#65](https://github.com/okta/okta-mcp-server/issues/65). New module `tools/applications/group_assignments.py`.
+- Added group push mapping tools — `list_group_push_mappings`, `get_group_push_mapping` (`okta.apps.read` + `okta.groups.read`), `create_group_push_mapping`, `update_group_push_mapping`, `delete_group_push_mapping` (`okta.apps.manage` + `okta.groups.manage`) — wrapping `/api/v1/apps/{appId}/group-push/mappings[/{mappingId}]`. New module `tools/applications/group_push.py`. Active Directory `appConfig` bypasses the SDK's `AppConfig.from_dict`, which drops every field but `type`.
+- `unassign_group_from_application` and `delete_group_push_mapping` prompt for confirmation via MCP elicitation; the delete tool falls back to an explicit `confirmation="DELETE"` argument for clients without elicitation support.
+- Added `tests/test_group_assignments.py` (14 tests) and `tests/test_group_push.py` (21 tests). Suite total: **556 → 591 tests**, all passing.
+
 ## v1.1.6
 
 ### Features

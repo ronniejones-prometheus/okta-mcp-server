@@ -67,6 +67,24 @@ TOOL_SCOPE_REGISTRY: dict[str, str] = {
     "get_catalog_app":                      "okta.apps.read",
     "install_oin_app":                      "okta.apps.manage",
     # ------------------------------------------------------------------
+    # Application group assignments  (src/okta_mcp_server/tools/applications/group_assignments.py)
+    # ------------------------------------------------------------------
+    "list_application_group_assignments":   "okta.apps.read",
+    "get_application_group_assignment":     "okta.apps.read",
+    "assign_group_to_application":          "okta.apps.manage",
+    "unassign_group_from_application":      "okta.apps.manage",
+    # ------------------------------------------------------------------
+    # Group push mappings  (src/okta_mcp_server/tools/applications/group_push.py)
+    # Okta also requires the matching okta.groups.* scope for every group push
+    # call; the tools enforce both via require_scopes. The apps scope is the
+    # primary one registered here for startup pruning.
+    # ------------------------------------------------------------------
+    "list_group_push_mappings":             "okta.apps.read",
+    "get_group_push_mapping":               "okta.apps.read",
+    "create_group_push_mapping":            "okta.apps.manage",
+    "update_group_push_mapping":            "okta.apps.manage",
+    "delete_group_push_mapping":            "okta.apps.manage",
+    # ------------------------------------------------------------------
     # Policies  (src/okta_mcp_server/tools/policies/policies.py)
     # ------------------------------------------------------------------
     "list_policies":                        "okta.policies.read",

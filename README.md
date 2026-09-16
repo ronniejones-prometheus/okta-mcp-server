@@ -602,6 +602,15 @@ The Okta Open Source MCP Server provides the following tools for LLMs to interac
 | `list_catalog_apps`           | Browse the OIN app catalog (find an app's `name` + features) | - `Find a SCIM 2.0 test app in the catalog` <br> - `Search the OIN catalog for Slack`                                                                        |
 | `get_catalog_app`             | Get a single OIN catalog app definition (incl. schema) | - `Show the catalog definition for the SCIM 2.0 test app`                                                                                                    |
 | `install_oin_app`             | Install an instance of an OIN catalog app (e.g. a provisioning-capable SCIM app) | - `Install the SCIM 2.0 test app as "HR Directory Sync"` <br> - `Add the Slack OIN app to my org`                                                            |
+| `list_application_group_assignments` | List the groups assigned to an app          | - `Which groups are assigned to the GitHub app?` <br> - `Show the group assignments for Slack with their priorities`                                        |
+| `get_application_group_assignment` | Get one group's assignment on an app           | - `Is acl:github:developer assigned to the GitHub app?` <br> - `Show the app profile for the Engineering group on Salesforce`                                |
+| `assign_group_to_application` | Assign a group to an app (optionally with priority / app profile) | - `Assign acl:slack:factory to the Slack app` <br> - `Give the Finance group the "admin" role on Box`                                             |
+| `unassign_group_from_application` | Remove a group's assignment from an app (prompts for confirmation) | - `Unassign the Contractors group from the Zoom app`                                                                                       |
+| `list_group_push_mappings`    | List group push mappings on a provisioning-enabled app | - `Which groups are pushed to AWS IAM Identity Center?` <br> - `Show group push mappings in ERROR on the GitHub app`                                  |
+| `get_group_push_mapping`      | Get a single group push mapping                   | - `Show mapping gPm... on the GitHub app, including its last push time`                                                                                       |
+| `create_group_push_mapping`   | Push an Okta group to a downstream app (create or link the target group) | - `Push acl:github:infra to the GitHub app as a new group` <br> - `Link the Engineering group to the existing "eng" group in Slack`               |
+| `update_group_push_mapping`   | Activate or deactivate a group push mapping       | - `Pause group push for acl:aws:...:read-only on Identity Center` <br> - `Re-activate the mapping that is in ERROR after fixing it`                            |
+| `delete_group_push_mapping`   | Delete a group push mapping, optionally deleting the target group (prompts for confirmation) | - `Delete the inactive push mapping for the old Contractors group`                                                     |
 
 ### Policies
 
@@ -773,13 +782,15 @@ The Okta Open Source MCP Server uses a **scope-based tool loading** mechanism to
 | `okta.users.manage` | `create_user`, `update_user`, `deactivate_user`, `delete_deactivated_user` |
 | `okta.groups.read` | `list_groups`, `get_group`, `list_group_users`, `list_group_apps` |
 | `okta.groups.manage` | `create_group`, `update_group`, `delete_group`, `add_user_to_group`, `remove_user_from_group` |
-| `okta.apps.read` | `list_applications`, `get_application`, `list_catalog_apps`, `get_catalog_app` |
-| `okta.apps.manage` | `create_application`, `update_application`, `delete_application`, `activate_application`, `deactivate_application`, `install_oin_app` |
+| `okta.apps.read` | `list_applications`, `get_application`, `list_catalog_apps`, `get_catalog_app`, `list_application_group_assignments`, `get_application_group_assignment`, `list_group_push_mappings`\*, `get_group_push_mapping`\* |
+| `okta.apps.manage` | `create_application`, `update_application`, `delete_application`, `activate_application`, `deactivate_application`, `install_oin_app`, `assign_group_to_application`, `unassign_group_from_application`, `create_group_push_mapping`\*, `update_group_push_mapping`\*, `delete_group_push_mapping`\* |
 | `okta.policies.read` | `list_policies`, `get_policy`, `list_policy_rules`, `get_policy_rule` |
 | `okta.policies.manage` | `create_policy`, `update_policy`, `delete_policy`, `activate_policy`, `deactivate_policy`, `create_policy_rule`, `update_policy_rule`, `delete_policy_rule`, `activate_policy_rule`, `deactivate_policy_rule` |
 | `okta.deviceAssurance.read` | `list_device_assurance_policies`, `get_device_assurance_policy` |
 | `okta.deviceAssurance.manage` | `create_device_assurance_policy`, `replace_device_assurance_policy`, `delete_device_assurance_policy` |
 | `okta.logs.read` | `get_logs` |
+
+\* Group push tools additionally require the matching `okta.groups.read` / `okta.groups.manage` scope — Okta demands both an apps and a groups scope for every group push call.
 | `okta.brands.read` | `list_brands`, `get_brand`, `list_brand_domains`, `list_brand_themes`, `get_brand_theme`, `get_sign_in_page_resources`, `get_customized_sign_in_page`, `get_default_sign_in_page`, `get_preview_sign_in_page`, `list_sign_in_widget_versions`, `get_error_page_resources`, `get_customized_error_page`, `get_default_error_page`, `get_preview_error_page`, `get_sign_out_page_settings` |
 | `okta.brands.manage` | `create_brand`, `replace_brand`, `delete_brand`, `replace_brand_theme`, `upload_brand_theme_logo`, `delete_brand_theme_logo`, `upload_brand_theme_favicon`, `delete_brand_theme_favicon`, `upload_brand_theme_background_image`, `delete_brand_theme_background_image`, `replace_customized_sign_in_page`, `delete_customized_sign_in_page`, `replace_preview_sign_in_page`, `delete_preview_sign_in_page`, `replace_customized_error_page`, `delete_customized_error_page`, `replace_preview_error_page`, `delete_preview_error_page`, `replace_sign_out_page_settings` |
 | `okta.templates.read` | `list_email_templates`, `get_email_template`, `list_email_customizations`, `get_email_customization`, `get_email_customization_preview`, `get_email_default_content`, `get_email_default_content_preview`, `get_email_settings` |

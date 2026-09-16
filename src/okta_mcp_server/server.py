@@ -138,6 +138,8 @@ def main():
 
     logger.info("Starting Okta Open Source MCP Server")
     from okta_mcp_server.tools.applications import applications  # noqa: F401
+    from okta_mcp_server.tools.applications import group_assignments  # noqa: F401
+    from okta_mcp_server.tools.applications import group_push  # noqa: F401
     from okta_mcp_server.tools.customization.brands import brands  # noqa: F401
     from okta_mcp_server.tools.customization.custom_domains import custom_domains  # noqa: F401
     from okta_mcp_server.tools.customization.themes import themes  # noqa: F401

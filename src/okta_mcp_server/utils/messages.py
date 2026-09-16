@@ -37,6 +37,17 @@ DEACTIVATE_APPLICATION = (
     "The application will become unavailable to all assigned users."
 )
 
+UNASSIGN_GROUP_FROM_APPLICATION = (
+    "Are you sure you want to unassign group {group_id} from application {app_id}? "
+    "Members of the group will lose the access granted through this assignment, "
+    "and may be deprovisioned in the app if provisioning is enabled."
+)
+
+DELETE_GROUP_PUSH_MAPPING = (
+    "Are you sure you want to delete group push mapping {mapping_id} on application {app_id}? "
+    "Okta will stop pushing membership changes for it.{target_note}"
+)
+
 # ---------------------------------------------------------------------------
 # Users
 # ---------------------------------------------------------------------------
