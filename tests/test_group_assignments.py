@@ -209,15 +209,44 @@ class TestUnassignGroupFromApplication:
 
     @pytest.mark.asyncio
     @patch(f"{MODULE}.get_okta_client")
-    async def test_no_elicitation_support_auto_confirms(self, mock_get_client, ctx_no_elicitation):
+    async def test_no_elicitation_returns_confirmation_prompt(self, mock_get_client, ctx_no_elicitation):
+        """Without elicitation the tool must refuse to act and ask for an explicit confirmation."""
         client = AsyncMock()
-        client.unassign_application_from_group.return_value = (None, None)
         mock_get_client.return_value = client
 
         result = await unassign_group_from_application(ctx=ctx_no_elicitation, app_id=APP_ID, group_id=GROUP_ID)
 
+        client.unassign_application_from_group.assert_not_called()
+        assert result[0]["confirmation_required"] is True
+        assert result[0]["group_id"] == GROUP_ID
+        assert "UNASSIGN" in result[0]["message"]
+
+    @pytest.mark.asyncio
+    @patch(f"{MODULE}.get_okta_client")
+    async def test_no_elicitation_with_typed_confirmation_unassigns(self, mock_get_client, ctx_no_elicitation):
+        client = AsyncMock()
+        client.unassign_application_from_group.return_value = (None, None)
+        mock_get_client.return_value = client
+
+        result = await unassign_group_from_application(
+            ctx=ctx_no_elicitation, app_id=APP_ID, group_id=GROUP_ID, confirmation="UNASSIGN"
+        )
+
         client.unassign_application_from_group.assert_called_once_with(APP_ID, GROUP_ID)
         assert "successfully" in result[0]["message"]
+
+    @pytest.mark.asyncio
+    @patch(f"{MODULE}.get_okta_client")
+    async def test_wrong_confirmation_word_does_not_bypass_prompt(self, mock_get_client, ctx_no_elicitation):
+        client = AsyncMock()
+        mock_get_client.return_value = client
+
+        result = await unassign_group_from_application(
+            ctx=ctx_no_elicitation, app_id=APP_ID, group_id=GROUP_ID, confirmation="DELETE"
+        )
+
+        client.unassign_application_from_group.assert_not_called()
+        assert result[0]["confirmation_required"] is True
 
     @pytest.mark.asyncio
     @patch(f"{MODULE}.get_okta_client")

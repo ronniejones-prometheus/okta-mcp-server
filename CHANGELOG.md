@@ -6,8 +6,9 @@ All notable changes to this project will be documented in this file.
 ### Features
 - Added application group assignment tools — `list_application_group_assignments`, `get_application_group_assignment` (`okta.apps.read`), `assign_group_to_application` and `unassign_group_from_application` (`okta.apps.manage`) — wrapping `/api/v1/apps/{appId}/groups[/{groupId}]`. Addresses upstream [#116](https://github.com/okta/okta-mcp-server/issues/116) and the group half of [#65](https://github.com/okta/okta-mcp-server/issues/65). New module `tools/applications/group_assignments.py`.
 - Added group push mapping tools — `list_group_push_mappings`, `get_group_push_mapping` (`okta.apps.read` + `okta.groups.read`), `create_group_push_mapping`, `update_group_push_mapping`, `delete_group_push_mapping` (`okta.apps.manage` + `okta.groups.manage`) — wrapping `/api/v1/apps/{appId}/group-push/mappings[/{mappingId}]`. New module `tools/applications/group_push.py`. Active Directory `appConfig` bypasses the SDK's `AppConfig.from_dict`, which drops every field but `type`.
-- `unassign_group_from_application` and `delete_group_push_mapping` prompt for confirmation via MCP elicitation; the delete tool falls back to an explicit `confirmation="DELETE"` argument for clients without elicitation support.
-- Added `tests/test_group_assignments.py` (14 tests) and `tests/test_group_push.py` (21 tests). Suite total: **556 → 591 tests**, all passing.
+- `unassign_group_from_application` and `delete_group_push_mapping` prompt for confirmation via MCP elicitation. For clients without elicitation support neither tool acts on its own: they return a `confirmation_required` payload and only proceed when called again with an explicit `confirmation="UNASSIGN"` / `confirmation="DELETE"` argument typed by the human.
+- Cherry-picked upstream PR [#85](https://github.com/okta/okta-mcp-server/pull/85) (unmerged upstream) so a single non-conforming app or policy record no longer aborts `list_applications`, `get_application`, `list_group_apps`, or policy reads (upstream [#48](https://github.com/okta/okta-mcp-server/issues/48)); non-conforming records come back as raw dicts tagged with `_deserialization_warning`.
+- Added `tests/test_group_assignments.py` (16 tests) and `tests/test_group_push.py` (21 tests). Suite total: **556 → 614 tests**, all passing.
 
 ## v1.1.6
 

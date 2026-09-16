@@ -22,12 +22,7 @@ from okta_mcp_server.server import mcp
 from okta_mcp_server.utils.client import get_okta_client
 from okta_mcp_server.utils.elicitation import DeleteConfirmation, elicit_or_fallback
 from okta_mcp_server.utils.messages import UNASSIGN_GROUP_FROM_APPLICATION
-from okta_mcp_server.utils.pagination import (
-    build_query_params,
-    create_paginated_response,
-    extract_after_cursor,
-    paginate_all_results,
-)
+from okta_mcp_server.utils.pagination import build_query_params, create_paginated_response, extract_after_cursor, paginate_all_results
 from okta_mcp_server.utils.scope_guard import require_scopes
 from okta_mcp_server.utils.serialization import json_response, none_body_error
 from okta_mcp_server.utils.validation import validate_ids
@@ -114,8 +109,8 @@ async def list_application_group_assignments(
             return create_paginated_response([], response, fetch_all)
 
         count = len(assignments)
-        has_more = (hasattr(response, "has_next") and response.has_next()) or bool(extract_after_cursor(response))
-        if fetch_all and response and has_more:
+        _has_more = (hasattr(response, "has_next") and response.has_next()) or bool(extract_after_cursor(response))
+        if fetch_all and response and _has_more:
             logger.info(f"fetch_all=True, auto-paginating from initial {count} assignments")
 
             async def _next_page(cursor):
@@ -174,9 +169,7 @@ async def get_application_group_assignment(
         assignment, _, err = await client.get_application_group_assignment(app_id, group_id, **query_params)
 
         if err:
-            logger.error(
-                f"Okta API error while getting assignment of group {group_id} for application {app_id}: {err}"
-            )
+            logger.error(f"Okta API error while getting assignment of group {group_id} for application {app_id}: {err}")
             return {"error": str(err)}
 
         if assignment is None:
@@ -257,7 +250,9 @@ async def assign_group_to_application(
 @require_scopes("okta.apps.manage", error_return_type="list")
 @validate_ids("app_id", "group_id")
 @json_response
-async def unassign_group_from_application(ctx: Context, app_id: str, group_id: str) -> list:
+async def unassign_group_from_application(
+    ctx: Context, app_id: str, group_id: str, confirmation: Optional[str] = None
+) -> list:
     """Remove a group's assignment from an application.
 
     Members of the group lose the access granted through this assignment
@@ -269,22 +264,44 @@ async def unassign_group_from_application(ctx: Context, app_id: str, group_id: s
     Parameters:
         app_id (str, required): The ID of the application
         group_id (str, required): The ID of the group to unassign
+        confirmation (str, optional): Only for clients without MCP elicitation support: pass
+            "UNASSIGN" to confirm after the tool has asked for confirmation. NEVER set this
+            automatically — the human user must explicitly confirm.
 
     Returns:
         List containing the result of the removal operation.
     """
     logger.warning(f"Unassignment requested for group {group_id} from application {app_id}")
 
-    outcome = await elicit_or_fallback(
-        ctx,
-        message=UNASSIGN_GROUP_FROM_APPLICATION.format(app_id=app_id, group_id=group_id),
-        schema=DeleteConfirmation,
-        auto_confirm_on_fallback=True,
-    )
+    fallback_payload = {
+        "confirmation_required": True,
+        "message": (
+            f"To confirm unassigning group {group_id} from application {app_id}, call "
+            f"'unassign_group_from_application' again with the same arguments and confirmation='UNASSIGN'. "
+            f"Members of the group will lose the access granted through this assignment."
+        ),
+        "app_id": app_id,
+        "group_id": group_id,
+    }
 
-    if not outcome.confirmed:
-        logger.info(f"Unassignment of group {group_id} from application {app_id} cancelled by user")
-        return [{"message": "Group unassignment cancelled by user."}]
+    if confirmation != "UNASSIGN":
+        outcome = await elicit_or_fallback(
+            ctx,
+            message=UNASSIGN_GROUP_FROM_APPLICATION.format(app_id=app_id, group_id=group_id),
+            schema=DeleteConfirmation,
+            fallback_payload=fallback_payload,
+        )
+
+        if not outcome.used_elicitation:
+            logger.info(
+                f"Elicitation unavailable for unassigning group {group_id} from application {app_id} — "
+                f"returning fallback confirmation prompt"
+            )
+            return [outcome.fallback_response]
+
+        if not outcome.confirmed:
+            logger.info(f"Unassignment of group {group_id} from application {app_id} cancelled by user")
+            return [{"message": "Group unassignment cancelled by user."}]
 
     manager = ctx.request_context.lifespan_context.okta_auth_manager
 
